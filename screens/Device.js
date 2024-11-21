@@ -489,6 +489,23 @@ const Device = () => {
         return;
       }
 
+      // Delete old QR image from storage if it exists
+      if (editingDevice.image) {
+        try {
+          // Extract the file path from the image URL
+          const oldImageUrl = new URL(editingDevice.image);
+          const oldImagePath = decodeURIComponent(oldImageUrl.pathname.split('/o/')[1].split('?')[0]);
+          
+          // Create reference to old image and delete it
+          const oldImageRef = ref(storage, oldImagePath);
+          await deleteObject(oldImageRef);
+          console.log('Old QR image deleted successfully');
+        } catch (error) {
+          console.error('Error deleting old QR image:', error);
+          // Continue with update even if delete fails
+        }
+      }
+
       const updatedDeviceData = {
         name: values.name,
         departmentName: values.departmentName,
@@ -499,22 +516,11 @@ const Device = () => {
         updatedAt: new Date().toISOString()
       };
 
-      // Cp nhật Firestore
+      // Update Firestore document
       const deviceRef = doc(db, 'DEVICES', editingDevice.id);
       await updateDoc(deviceRef, updatedDeviceData);
 
-      // Xóa QR code cũ nếu có
-      if (editingDevice.image) {
-        try {
-          const oldImagePath = editingDevice.image.split('/').pop().split('?')[0];
-          const oldImageRef = ref(storage, `QR/${oldImagePath}`);
-          await deleteObject(oldImageRef);
-        } catch (error) {
-          console.log('Lỗi khi xóa QR cũ:', error);
-        }
-      }
-
-      // Tạo QR data mới
+      // Create new QR code
       const qrData = createQRData({
         id: editingDevice.id,
         name: values.name,
@@ -525,14 +531,12 @@ const Device = () => {
         departmentName: values.departmentName
       });
 
-      // Tạo URL cho QR
+      // Rest of your existing QR generation code...
       const baseUrl = 'https://book92.github.io/Lab1_P1/diviceinfo.html';
       const encodedData = encodeURIComponent(JSON.stringify(qrData));
       const qrUrl = `${baseUrl}?data=${encodedData}`;
 
-      console.log('QR URL:', qrUrl); // Debug URL
-
-      // Tạo QR code
+      // Create QR canvas
       const qrCanvas = document.createElement('canvas');
       await QRCodeLib.toCanvas(qrCanvas, qrUrl, {
         width: 400,
@@ -544,17 +548,17 @@ const Device = () => {
         }
       });
 
-      // Convert canvas to base64
+      // Convert to base64 and upload new QR
       const qrImage = qrCanvas.toDataURL('image/png');
       const qrImageData = qrImage.split(',')[1];
 
-      // Upload to Firebase Storage
       const newFileName = `QR/${editingDevice.id}_${Date.now()}.png`;
       const qrRef = ref(storage, newFileName);
       
       await uploadString(qrRef, qrImageData, 'base64');
       const newQRLink = await getDownloadURL(qrRef);
 
+      // Update document with new QR image URL
       await updateDoc(deviceRef, {
         image: newQRLink
       });

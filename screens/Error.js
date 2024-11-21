@@ -26,6 +26,15 @@ const Error = () => {
     fetchErrors();
   }, []);
 
+  const sortErrors = (errorsData) => {
+    return errorsData.sort((a, b) => {
+      if (a.state !== b.state) {
+        return a.state === 'Chưa sửa' ? -1 : 1;
+      }
+      return new Date(b.reportday) - new Date(a.reportday);
+    });
+  };
+
   const fetchErrors = async () => {
     try {
       const querySnapshot = await getDocs(collection(db, 'ERROR'));
@@ -33,7 +42,7 @@ const Error = () => {
         id: doc.id,
         ...doc.data()
       }));
-      setErrors(errorsData);
+      setErrors(sortErrors(errorsData));
       setLoading(false);
     } catch (error) {
       console.error("Error fetching errors: ", error);
@@ -226,10 +235,10 @@ const Error = () => {
 
         <Table
           columns={columns}
-          dataSource={errors.filter(error => 
+          dataSource={sortErrors(errors.filter(error => 
             error.deviceName?.toLowerCase().includes(searchText.toLowerCase()) ||
             error.description?.toLowerCase().includes(searchText.toLowerCase())
-          )}
+          ))}
           rowKey="id"
           loading={loading}
           pagination={{
